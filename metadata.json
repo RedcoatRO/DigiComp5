@@ -1,0 +1,6 @@
+{
+  "name": "Windows 11 & Google Drive Sharing Simulation",
+  "description": "A web application that realistically simulates a Windows 11 interface where the user shares a file from a mock Google Drive, sets specific permissions for colleagues, and generates a restricted shareable link.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
