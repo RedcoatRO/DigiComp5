@@ -20,16 +20,23 @@ import { WindowsNotificationProvider } from './contexts/WindowsNotificationConte
 import WindowsNotificationContainer from './components/WindowsNotificationContainer';
 import MailAppWindowContent from './components/MailAppWindowContent';
 import TaskChecklist from './components/TaskChecklist';
+import { sendEvaluationResult } from './utils/communication';
+import EvaluationResultWindow from './components/EvaluationResultWindow';
+
 
 // --- GAMIFICATION SETUP ---
+// Sarcinile actualizate pentru a include un punctaj specific
 const TASKS: Task[] = [
-    { id: 1, text: "Select 'Proiect.docx'", hintId: 'file-1', isCompleted: ({ files }) => files.some(f => f.id === '1' && f.activity.some(a => a.action === "Selected")) },
-    { id: 2, text: "Share with colegA@gmail.com", hintId: 'share-button', isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegA@gmail.com')},
-    { id: 3, text: "Set colegA's permission to Viewer", hintId: 'share-modal-input', isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegA@gmail.com' && u.role === Role.Viewer)},
-    { id: 4, text: "Share with colegB@gmail.com", hintId: 'share-modal-input', isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegB@gmail.com')},
-    { id: 5, text: "Set colegB's permission to Editor", hintId: 'share-modal-input', isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegB@gmail.com' && u.role === Role.Editor)},
-    { id: 6, text: "Copy the restricted link", hintId: 'copy-link-button', isCompleted: ({ hasCopiedLink }) => hasCopiedLink },
+    { id: 1, text: "Select 'Proiect.docx'", hintId: 'file-1', points: 10, isCompleted: ({ files }) => files.some(f => f.id === '1' && f.activity.some(a => a.action === "Selected")) },
+    { id: 2, text: "Share with colegA@gmail.com", hintId: 'share-button', points: 15, isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegA@gmail.com')},
+    { id: 3, text: "Set colegA's permission to Viewer", hintId: 'share-modal-input', points: 15, isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegA@gmail.com' && u.role === Role.Viewer)},
+    { id: 4, text: "Share with colegB@gmail.com", hintId: 'share-modal-input', points: 15, isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegB@gmail.com')},
+    { id: 5, text: "Set colegB's permission to Editor", hintId: 'share-modal-input', points: 15, isCompleted: ({ sharedWith }) => sharedWith.some(u => u.email === 'colegB@gmail.com' && u.role === Role.Editor)},
+    { id: 6, text: "Copy the restricted link", hintId: 'copy-link-button', points: 30, isCompleted: ({ hasCopiedLink }) => hasCopiedLink },
 ];
+
+// Calculul scorului maxim pe baza sarcinilor definite
+const MAX_SCORE = TASKS.reduce((sum, task) => sum + task.points, 0);
 
 // Componenta principală a aplicației
 export default function App() {
@@ -55,36 +62,50 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [hintTarget, setHintTarget] = useState<string | null>(null);
   const inactivityTimer = useRef<number | null>(null);
+
+  // Stare nouă pentru fereastra de evaluare
+  const [isEvaluationResultOpen, setEvaluationResultOpen] = useState(false);
+  const [evaluationResultData, setEvaluationResultData] = useState<{ score: number; maxScore: number; details: string; } | null>(null);
+
   
   // --- GAMIFICATION LOGIC ---
-  // Calculează starea sarcinilor și scorul
+  // Calculează scorul pe baza punctelor din sarcini
   useEffect(() => {
-    let completedCount = 0;
     const currentGamificationState = { files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink };
-    tasks.forEach(task => {
-        if(task.isCompleted(currentGamificationState)) {
-            completedCount++;
+    const currentScore = tasks.reduce((acc, task) => {
+        if (task.isCompleted(currentGamificationState)) {
+            return acc + task.points;
         }
-    });
-    setScore(completedCount * 10);
+        return acc;
+    }, 0);
+    setScore(currentScore);
   }, [files, sharedWith, hasCopiedRestrictedLink, tasks]);
 
-  // Logică pentru sistemul de indicii (hints)
+  // Funcție centralizată pentru afișarea indiciului
+  const showHint = useCallback(() => {
+    const allTasksCompleted = tasks.every(task => task.isCompleted({ files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink }));
+    if (allTasksCompleted) return;
+
+    const firstUncompletedTask = tasks.find(task => !task.isCompleted({ files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink }));
+    if (firstUncompletedTask) {
+        setHintTarget(firstUncompletedTask.hintId);
+    }
+  }, [tasks, files, sharedWith, hasCopiedRestrictedLink]);
+
+  // Logică pentru sistemul de indicii (hints) activat prin inactivitate
   const resetInactivityTimer = useCallback(() => {
     setHintTarget(null);
     if (inactivityTimer.current) {
         clearTimeout(inactivityTimer.current);
     }
-    const allTasksCompleted = tasks.every(task => task.isCompleted({ files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink }));
-    if (allTasksCompleted) return;
+    inactivityTimer.current = window.setTimeout(showHint, 15000); // 15 secunde de inactivitate
+  }, [showHint]);
 
-    inactivityTimer.current = window.setTimeout(() => {
-        const firstUncompletedTask = tasks.find(task => !task.isCompleted({ files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink }));
-        if (firstUncompletedTask) {
-            setHintTarget(firstUncompletedTask.hintId);
-        }
-    }, 15000); // 15 secunde de inactivitate
-  }, [tasks, files, sharedWith, hasCopiedRestrictedLink]);
+  // Activarea indiciului la click pe butonul din Taskbar
+  const handleHintClick = useCallback(() => {
+    showHint();
+    resetInactivityTimer(); // Resetează timer-ul de inactivitate pentru a nu arăta hint-ul imediat din nou
+  }, [showHint, resetInactivityTimer]);
 
   useEffect(() => {
     resetInactivityTimer();
@@ -98,6 +119,39 @@ export default function App() {
         }
     };
   }, [resetInactivityTimer]);
+
+  // Funcția care finalizează evaluarea
+  const handleCheckEvaluation = () => {
+      const currentGamificationState = { files, sharedWith, hasCopiedLink: hasCopiedRestrictedLink };
+      let finalScore = 0;
+      let tasksCompleted = 0;
+      const detailsParts: string[] = [];
+
+      tasks.forEach(task => {
+          if (task.isCompleted(currentGamificationState)) {
+              finalScore += task.points;
+              tasksCompleted++;
+              detailsParts.push(`- ${task.text}: ${task.points} puncte`);
+          } else {
+              detailsParts.push(`- ${task.text}: 0 puncte (nefinalizat)`);
+          }
+      });
+      
+      const justification = `Detalii punctaj:\n${detailsParts.join('\n')}`;
+
+      // Trimite rezultatele către fereastra părinte folosind postMessage
+      sendEvaluationResult(finalScore, MAX_SCORE, justification, tasksCompleted, tasks.length);
+
+      // Salvează datele pentru a fi afișate în fereastra de rezultate
+      setEvaluationResultData({
+          score: finalScore,
+          maxScore: MAX_SCORE,
+          details: justification,
+      });
+
+      // Deschide fereastra cu rezultate
+      setEvaluationResultOpen(true);
+  };
 
 
   // Stare pentru istoricul de navigare al browser-ului
@@ -293,6 +347,13 @@ export default function App() {
                     {isStartMenuOpen && <StartMenu onClose={() => setStartMenuOpen(false)} />}
                </AnimatePresence>
 
+               {/* Fereastra de rezultate care nu poate fi închisă */}
+               <AnimatePresence>
+                {isEvaluationResultOpen && evaluationResultData && (
+                    <EvaluationResultWindow {...evaluationResultData} />
+                )}
+               </AnimatePresence>
+
               <ToastContainer />
               <WindowsNotificationContainer />
 
@@ -302,6 +363,10 @@ export default function App() {
                 onFileExplorerClick={toggleFileExplorer}
                 isFileExplorerOpen={explorerWindowState.isOpen}
                 onStartMenuClick={() => setStartMenuOpen(v => !v)}
+                score={score}
+                maxScore={MAX_SCORE}
+                onCheckClick={handleCheckEvaluation}
+                onHintClick={handleHintClick}
               />
             </div>
           </WindowsNotificationProvider>

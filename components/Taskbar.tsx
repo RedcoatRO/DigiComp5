@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChromeIcon, FileExplorerIcon, WindowsIcon } from '../constants';
+import { ChromeIcon, FileExplorerIcon, WindowsIcon, QuestionIcon, CheckCircleIcon } from '../constants';
 import ThemeToggle from './ThemeToggle';
 import Tooltip from './Tooltip';
 import Clock from './Clock';
@@ -11,12 +11,38 @@ interface TaskbarProps {
   onFileExplorerClick: () => void;
   isFileExplorerOpen: boolean;
   onStartMenuClick: () => void;
+  score: number;
+  maxScore: number;
+  onCheckClick: () => void;
+  onHintClick: () => void;
 }
 
-const Taskbar = ({ onChromeClick, isChromeOpen, onFileExplorerClick, isFileExplorerOpen, onStartMenuClick }: TaskbarProps) => (
+const Taskbar = ({ 
+    onChromeClick, isChromeOpen, 
+    onFileExplorerClick, isFileExplorerOpen, 
+    onStartMenuClick,
+    score, maxScore, onCheckClick, onHintClick
+}: TaskbarProps) => (
   <div className="absolute bottom-0 left-0 right-0 h-12 bg-gray-200/70 dark:bg-gray-900/70 backdrop-blur-xl flex justify-between items-center shadow-2xl transition-colors duration-300 px-4">
-    <div className="flex-1"></div>
-    <div className="flex-1 flex justify-center space-x-2">
+    
+    {/* Partea stângă: Scor și Hint */}
+    <div className="flex items-center space-x-4">
+        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            <span>SCOR: </span>
+            <span className="font-bold">{score}/{maxScore}</span>
+        </div>
+        <Tooltip content="Ajutor">
+            <button 
+                onClick={onHintClick} 
+                className="p-2 rounded-md hover:bg-black/10 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-windows-blue"
+            >
+                <QuestionIcon className="w-5 h-5" />
+            </button>
+        </Tooltip>
+    </div>
+    
+    {/* Partea centrală: Iconițe aplicații */}
+    <div className="absolute left-1/2 -translate-x-1/2 flex justify-center space-x-2">
       <Tooltip content="Start">
         <motion.button 
           onClick={onStartMenuClick}
@@ -58,7 +84,16 @@ const Taskbar = ({ onChromeClick, isChromeOpen, onFileExplorerClick, isFileExplo
         </motion.button>
       </Tooltip>
     </div>
-    <div className="flex-1 flex justify-end items-center space-x-4">
+
+    {/* Partea dreaptă: Buton verificare, Ceas, etc. */}
+    <div className="flex justify-end items-center space-x-4">
+      <button 
+        onClick={onCheckClick} 
+        className="flex items-center space-x-2 px-4 py-1.5 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500 dark:focus-visible:ring-offset-gray-800 font-semibold"
+      >
+           <CheckCircleIcon className="w-5 h-5" />
+           <span>Verifică-mă!</span>
+       </button>
       <ThemeToggle />
       <Clock />
     </div>

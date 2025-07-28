@@ -98,5 +98,6 @@ export interface Task {
     id: number;
     text: string;
     hintId: string; // ID-ul elementului UI pentru indiciu
+    points: number; // Puncte acordate pentru finalizarea sarcinii
     isCompleted: (state: { files: FileItem[]; sharedWith: UserPermission[], hasCopiedLink: boolean }) => boolean;
 }
